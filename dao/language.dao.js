@@ -1,5 +1,8 @@
+// DAO de idiomas
 const db = require('../services/mysql.service');
 
+// Por idioma: cantidad de streamers, seguidores promedio,
+// seguidores del mayor canal y porcentaje que representa del total
 const findFollowerStats = async () => {
   const [rows] = await db.query(
     `SELECT language.name AS languageName,

@@ -1,6 +1,8 @@
+// DAO de streamers: consultas SQL sobre streamer y tablas relacionadas
 const db = require('../services/mysql.service');
 const { MAIN, SECONDARY } = require('../constants/preferenceOrder');
 
+// Streamers con más espectadores promedio, con un mínimo de días activos
 const findTopByAudience = async ({ minActiveDays, limit }) => {
   const [rows] = await db.query(
     `SELECT name AS streamerName,
@@ -15,6 +17,7 @@ const findTopByAudience = async ({ minActiveDays, limit }) => {
   return rows;
 };
 
+// Juego principal de cada streamer, en orden alfabético
 const findMainGames = async ({ limit }) => {
   const [rows] = await db.query(
     `SELECT streamer.name AS streamerName, game.name AS gameName
@@ -29,6 +32,7 @@ const findMainGames = async ({ limit }) => {
   return rows;
 };
 
+// Vistas totales divididas entre seguidores (se evita dividir por cero)
 const findViewsPerFollower = async ({ limit }) => {
   const [rows] = await db.query(
     `SELECT name AS streamerName,
@@ -44,6 +48,7 @@ const findViewsPerFollower = async ({ limit }) => {
   return rows;
 };
 
+// Cuenta los streamers cuyo juego principal es el secundario de otro streamer
 const countWithMainGameSharedAsSecondary = async () => {
   const [rows] = await db.query(
     `SELECT COUNT(DISTINCT mainPick.id_streamer) AS streamersCount
@@ -60,15 +65,18 @@ const countWithMainGameSharedAsSecondary = async () => {
   return rows[0].streamersCount;
 };
 
+// Agrupa los streamers por rango de días activos y calcula su audiencia
+// (AVG y MAX ignoran los valores NULL)
 const findActivityRanges = async () => {
   const [rows] = await db.query(
     `SELECT CASE
-              WHEN active_days_per_week < 3 THEN '1. Less than 3 days'
-              WHEN active_days_per_week < 5 THEN '2. From 3 to less than 5 days'
-              WHEN active_days_per_week < 7 THEN '3. From 5 to less than 7 days'
-              ELSE '4. Seven days'
+              WHEN active_days_per_week < 2 THEN '1. 0 to less than 2 days'
+              WHEN active_days_per_week < 4 THEN '2. 2 to less than 4 days'
+              WHEN active_days_per_week < 6 THEN '3. 4 to less than 6 days'
+              ELSE '4. 6 to 7 days'
             END AS activityRange,
             COUNT(*) AS streamersCount,
+            COUNT(avg_viewers_per_stream) AS streamersWithViewerData,
             ROUND(AVG(avg_viewers_per_stream)) AS avgViewers,
             MAX(avg_viewers_per_stream) AS maxViewers
      FROM streamer

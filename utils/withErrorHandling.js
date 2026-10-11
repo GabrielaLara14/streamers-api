@@ -1,3 +1,4 @@
+// Envuelve un controlador para capturar errores y responder 500 en vez de romper el servidor
 const withErrorHandling = (handler) => async (req, res) => {
   try {
     await handler(req, res);
