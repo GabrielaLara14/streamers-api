@@ -29,6 +29,22 @@
   belowskip=2pt
 }
 
+
+% ---------------------------------------------------------------------------
+% Capturas de Thunder Client recortadas (solo requiere main.tex).
+% Se conserva la barra de la petición (método y URL) y, debajo, el estado, el
+% tamaño, el tiempo y el cuerpo JSON de la respuesta. Se omite el panel de
+% parámetros, que repite la URL y ocupaba casi la mitad de la imagen.
+% Las capturas miden 1058 px de ancho: la barra de la petición ocupa los
+% primeros 686 px y el panel de respuesta los últimos 368 px (1 px = 1 bp).
+% Uso: \thunderclip{archivo}{alto en px de la captura}{ancho de la barra}
+% La respuesta se dibuja con la misma escala que la barra.
+\newcommand{\thunderclip}[3]{%
+  \begin{tabular}[t]{@{}c@{}}
+    \includegraphics[width=#3,trim=0bp \dimexpr#2bp-42bp\relax{} 372bp 0bp,clip]{#1}\\[1.5pt]
+    \includegraphics[width=\dimexpr#3*368/686\relax,trim=690bp 0bp 0bp 0bp,clip]{#1}
+  \end{tabular}}
+
 \begin{document}
 
 \title{Modelado relacional y análisis con SQL del conjunto de datos \emph{Streamers}}
@@ -347,6 +363,15 @@ cellbit & Just Chatting & 3\,360\,000 \\
 \end{table}
 La condición \texttt{preference\_order = 1} es una decisión del modelo y no un detalle: sin ella, cada canal aparecería dos veces, una por cada juego. Tres de los cinco canales brasileños más grandes tienen \emph{Just Chatting} como juego principal, un adelanto del liderazgo que se confirma en la sección~VII-A.
 
+Esta misma unión de cuatro entidades se reutilizó en la API REST que se describe en la sección~\ref{sec:api}. La Fig.~\ref{fig:maingames} muestra la respuesta de \texttt{GET /streamers/main-games?limit=20}, que equivale a la consulta anterior sin el filtro de idioma y que, en lugar de ordenar por seguidores, lista los primeros 20 canales en orden alfabético. En los registros visibles se lee \texttt{2okos} con \emph{Just Chatting}, \texttt{39daph} con \emph{Art} y \texttt{4head} con \emph{Grand Theft Auto V}: una sola fila por canal, como exige la condición \texttt{preference\_order = 1}. La petición responde \texttt{200 OK} en 8~ms.
+
+\begin{figure}[!t]
+\centering
+\thunderclip{figures/thunder/thunder_03_main_games.png}{405}{\columnwidth}
+\caption{Prueba de \texttt{GET /streamers/main-games?limit=20}: juego principal de cada canal en orden alfabético (primeros registros).}
+\label{fig:maingames}
+\end{figure}
+
 \subsection{Agregación con \texttt{GROUP BY}}
 \emph{¿Cómo se comparan los canales de deportes electrónicos y los de personalidad en cantidad, seguidores promedio y días activos?}
 \begin{lstlisting}
@@ -373,7 +398,7 @@ esports & 57 & 1\,067\,475 & 2,53 \\
 \bottomrule
 \end{tabular}
 \end{table}
-Los canales de deportes electrónicos son pocos (57 frente a 942), pero tienen un promedio de seguidores mayor y transmiten con menor frecuencia (2,53 días frente a 3,66). Es la primera señal de que los canales institucionales se comportan distinto de los individuales, una diferencia que se vuelve decisiva en la sección~VII-D.
+Los canales de deportes electrónicos son pocos (57 frente a 942), pero tienen un promedio de seguidores mayor y transmiten con menor frecuencia (2,53 días frente a 3,66). Es la primera señal de que los canales institucionales se comportan distinto de los individuales, una diferencia que se vuelve decisiva en la sección~VII-D. Esta misma agregación se expone como el \emph{endpoint} \texttt{/streamer-types/distribution}, cuya respuesta (57 canales \texttt{esports} y 942 \texttt{personality}) se muestra en la Fig.~\ref{fig:entorno}.
 
 \section{Consultas de análisis}
 \subsection{Juego principal y juego secundario}
@@ -406,6 +431,24 @@ Casino & 36 & Counter-Strike & 39 \\
 \end{tabular}
 \end{table}
 Sí coincide: \emph{Just Chatting} encabeza ambas listas, con 257 canales como juego principal (25,7\,\% de los 999) y 155 como segunda opción. Que un mismo valor domine los dos puestos sugiere que no es una preferencia dispersa sino una práctica estructural: \emph{Just Chatting} funciona más como una categoría de conversación que como un videojuego, y por eso sirve tanto de actividad central como de complemento. Fuera del primer puesto, las listas divergen. Los principales son títulos competitivos o de gran audiencia (\emph{League of Legends}, \emph{Grand Theft Auto V}, \emph{VALORANT}), mientras que \emph{Minecraft} aparece entre los tres más usados como segunda opción sin figurar entre los cinco principales: es un juego al que los canales recurren de forma complementaria más que como eje de su contenido.
+
+La Fig.~\ref{fig:rankings} reproduce estos resultados desde la API. La misma ruta, \texttt{GET /games/rankings}, se llamó dos veces cambiando únicamente el parámetro \texttt{preferenceOrder}: con valor 1 devuelve los cinco juegos principales más frecuentes y con valor 2 los cinco más frecuentes como segunda opción. Las dos respuestas, de cinco objetos con \texttt{gameName} y \texttt{streamersCount}, coinciden cifra por cifra con la tabla de esta sección (por ejemplo, \emph{Just Chatting} con 257 y 155 canales) y tardan 6~ms cada una. Que un solo parámetro cambie el rol del juego sin modificar la consulta confirma que la tabla puente \texttt{streamer\_game} modela correctamente el orden de preferencia.
+
+\begin{figure*}[!t]
+\centering
+\begin{minipage}[t]{0.485\textwidth}
+\centering
+\thunderclip{figures/thunder/thunder_06_rankings_main.png}{505}{\linewidth}\\[3pt]
+{\footnotesize (a)}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.485\textwidth}
+\centering
+\thunderclip{figures/thunder/thunder_07_rankings_second.png}{505}{\linewidth}\\[3pt]
+{\footnotesize (b)}
+\end{minipage}
+\caption{Prueba de \texttt{GET /games/rankings}: (a) con \texttt{preferenceOrder=1} (juego principal) y \texttt{limit=5}; (b) con \texttt{preferenceOrder=2} (segundo juego) y el \texttt{limit} por defecto.}
+\label{fig:rankings}
+\end{figure*}
 
 \subsection{Idioma con mayor promedio de seguidores}
 \emph{¿Qué idioma agrupa el mayor promedio de seguidores por canal? ¿Es también el que tiene más canales o el liderazgo depende de pocos canales muy grandes?}
@@ -450,6 +493,15 @@ Czech & 3 & 343\,333 & 165\,000 & 68,0 \\
 \end{table}
 El español tiene el mayor promedio (1\,776\,154 seguidores por canal), pero no es el idioma con más canales: el inglés tiene 401 frente a 106 y queda segundo en promedio. El liderazgo, por tanto, no proviene del volumen. Para saber si lo sostienen pocos canales gigantes, la consulta calcula el promedio sin el canal más grande de cada idioma. El del español apenas baja (de 1\,776\,154 a 1\,637\,831) y sigue siendo el más alto de todos, y su canal mayor aporta solo el 8,7\,\% de los seguidores del idioma. Su ventaja es, entonces, amplia y repartida. El caso contrario es el turco, que ocupa el tercer puesto con 1\,094\,714 pero cae a 788\,833 al retirar su mayor canal, que concentra el 38,2\,\% de la audiencia del idioma con solo siete canales. Los idiomas con muy pocos canales (checo, con tres, y el húngaro, el árabe y el rumano, con uno cada uno) no permiten conclusiones estadísticas, porque cualquier promedio sobre tan pocos datos lo determina un solo canal.
 
+La Fig.~\ref{fig:languages} muestra la respuesta de \texttt{GET /languages/follower-stats}, que entrega por idioma la cantidad de canales, el promedio de seguidores, los seguidores del canal mayor y su porcentaje sobre el total del idioma. Las tres filas visibles coinciden con el Cuadro~V: el español con 106 canales, 1\,776\,154 seguidores promedio y un canal mayor de 16\,300\,000 (8,7\,\%); el inglés con 401, 1\,133\,737 y 4,2\,\%; y el turco con 7, 1\,094\,714 y 38,2\,\%. El \emph{endpoint} no devuelve el promedio sin el canal mayor, pero este se recupera con los campos que sí entrega: para el turco, $(7\times 1\,094\,714-2\,930\,000)/6 = 788\,833$, el mismo valor de la columna <<Sin el mayor>> del cuadro.
+
+\begin{figure}[!t]
+\centering
+\thunderclip{figures/thunder/thunder_09_language_stats.png}{500}{\columnwidth}
+\caption{Prueba de \texttt{GET /languages/follower-stats}: canales, seguidores promedio y porcentaje del canal mayor por idioma (español, inglés y turco).}
+\label{fig:languages}
+\end{figure}
+
 \subsection{Juego principal de un canal que es secundario de otro}
 \emph{¿Existen canales cuyo juego principal es el secundario de otro canal? ¿Qué relación hay entre ellos en seguidores o vistas?}
 \begin{lstlisting}
@@ -491,6 +543,15 @@ GROUP BY streamer_game.preference_order
 ORDER BY streamer_game.preference_order;
 \end{lstlisting}
 La primera consulta responde la existencia: 934 de los 999 canales (93,5\,\%) tienen como juego principal uno que otro canal usa como secundario, y hay 70 juegos en esa situación de los 211 del catálogo. La respuesta es afirmativa, pero casi trivial: con una oferta tan concentrada en pocos juegos populares, la coincidencia es lo esperable. Lo informativo es la relación entre ambos grupos, que se calcula con la segunda consulta sobre los 70 juegos compartidos.
+
+La Fig.~\ref{fig:shared} confirma la primera cifra desde la API: \texttt{GET /streamers/main-game-shared-as-secondary} responde \texttt{200 OK} con el objeto \texttt{\{"streamersCount": 934\}}. Como la respuesta es un único número (22 bytes, 7~ms), la comprobación es directa: el valor coincide con el de la primera consulta.
+
+\begin{figure}[!t]
+\centering
+\thunderclip{figures/thunder/thunder_05_shared_secondary.png}{150}{\columnwidth}
+\caption{Prueba de \texttt{GET /streamers/main-game-shared-as-secondary}: 934 canales tienen como principal un juego que es secundario de otro canal.}
+\label{fig:shared}
+\end{figure}
 \begin{table}[!h]
 \centering\footnotesize
 \begin{tabular}{@{}lrrr@{}}
@@ -502,7 +563,18 @@ Secundario (2) & 746 & 1\,040\,064 & 35\,031\,815 \\
 \bottomrule
 \end{tabular}
 \end{table}
-Los canales que tienen esos juegos como secundarios son, en promedio, ligeramente mayores: 10,4\,\% más seguidores y 2,9\,\% más vistas totales (las vistas excluyen los valores nulos: 832 y 706 filas con dato). La diferencia es pequeña, y una tercera consulta que desagrega los cinco juegos con más filas muestra que no es un patrón consistente: en \emph{League of Legends} (833\,169 frente a 1\,411\,014 seguidores), \emph{Grand Theft Auto V} (815\,434 frente a 1\,070\,768) y \emph{VALORANT} (675\,278 frente a 1\,012\,396) los canales con ese juego como secundario son mayores, pero en \emph{Just Chatting} (1\,271\,079 frente a 1\,130\,277) y \emph{Fortnite} (2\,802\,486 frente a 1\,782\,544) ocurre lo contrario. No hay entonces una relación sistemática entre el rol del juego y el tamaño del canal. Una hipótesis plausible, que estos datos no permiten probar, es que los canales grandes diversifican hacia juegos competitivos como segunda opción, mientras que en los juegos de conversación o de moda los grandes los usan como eje.
+Los canales que tienen esos juegos como secundarios son, en promedio, ligeramente mayores: 10,4\,\% más seguidores y 2,9\,\% más vistas totales (las vistas excluyen los valores nulos: 832 y 706 filas con dato). La diferencia es pequeña, y una tercera consulta que desagrega los cinco juegos con más filas muestra que no es un patrón consistente: en \emph{League of Legends} (833\,169 frente a 1\,411\,014 seguidores), \emph{Grand Theft Auto V} (815\,434 frente a 1\,070\,768) y \emph{VALORANT} (675\,278 frente a 1\,012\,396) los canales con ese juego como secundario son mayores, pero en \emph{Just Chatting} (1\,271\,079 frente a 1\,130\,277) y \emph{Fortnite} (2\,802\,486 frente a 1\,782\,544) ocurre lo contrario.
+
+La Fig.~\ref{fig:comparison} muestra el \emph{endpoint} \texttt{GET /games/preference-comparison}, que devuelve para cada juego la cantidad de canales y los promedios de seguidores y de vistas totales, tanto como juego principal como secundario. Los dos primeros registros coinciden con las cifras anteriores: \emph{Just Chatting} aparece en 257 canales como principal y 155 como secundario, con 1\,271\,079 y 1\,130\,277 seguidores promedio, y \emph{League of Legends} en 84 y 36 canales, con 833\,169 y 1\,411\,014. La respuesta añade las vistas totales promedio, y estas no siguen el mismo sentido que los seguidores: \emph{Just Chatting} tiene más seguidores como principal pero más vistas como secundario (30\,144\,545 frente a 29\,758\,214), y \emph{League of Legends} muestra el patrón contrario, con más seguidores como secundario pero más vistas como principal (54\,601\,548 frente a 41\,227\,172). Incluso para un mismo juego, entonces, las dos medidas de audiencia no apuntan en la misma dirección.
+
+\begin{figure}[!t]
+\centering
+\thunderclip{figures/thunder/thunder_08_preference_comparison.png}{440}{\columnwidth}
+\caption{Prueba de \texttt{GET /games/preference-comparison?limit=15}: cantidad de canales, seguidores promedio y vistas promedio de cada juego como principal y como secundario (primeros registros).}
+\label{fig:comparison}
+\end{figure}
+
+No hay entonces una relación sistemática entre el rol del juego y el tamaño del canal. Una hipótesis plausible, que estos datos no permiten probar, es que los canales grandes diversifican hacia juegos competitivos como segunda opción, mientras que en los juegos de conversación o de moda los grandes los usan como eje.
 
 \subsection{Días activos por semana y audiencia}
 \emph{Agrupando los canales por rango de días activos por semana, ¿qué rango tiene el mejor promedio de espectadores por transmisión? ¿Más días activos implica más audiencia?}
@@ -571,22 +643,26 @@ Rango (días) & \multicolumn{2}{c}{personality} & \multicolumn{2}{c}{esports} \\
 Los canales de deportes electrónicos promedian entre 53\,397 y 115\,090 espectadores, de cinco a ocho veces más que los de personalidad, y 25 de ellos caen en el primer rango, es decir, el 11\,\% de ese grupo. Ese puñado de canales explica por qué el primer rango gana en el promedio global. Si se consideran solo los canales de personalidad, el mejor rango es el de 6 a 7 días (23\,348), aunque la relación sigue sin ser monótona (el rango de 2 a 4 días es el más bajo, con 13\,127). Además, el rango de menos días tiene la mayor proporción de datos faltantes (66 de 222 canales, 29,7\,\%, frente a menos del 10\,\% en los demás), por lo que su promedio global descansa en menos canales. En conclusión, el rango de 0 a 2 días tiene el mejor promedio, pero por la composición del grupo y no porque transmitir poco atraiga más público, y la frecuencia de transmisión por sí sola es un mal predictor de la audiencia.
 
 \section{API REST y pruebas con Thunder Client}
+\label{sec:api}
 Además de los scripts SQL, las consultas se expusieron como \emph{endpoints} de una API REST en Node.js, de modo que cada pregunta de análisis se pueda consultar con una petición HTTP. Esta sección describe el entorno en que se hicieron las pruebas, los \emph{endpoints} disponibles y cómo se contrastaron sus respuestas con las consultas SQL de las secciones~VI y~VII.
 
 \subsection{Entorno de pruebas}
 Las pruebas y consultas del laboratorio se realizaron en Visual Studio Code~\cite{vscode}, conectado a un servidor Node.js~\cite{nodejs} con Express~\cite{express} que consulta la base \texttt{db\_streamers} mediante \texttt{mysql2}~\cite{mysql2}, y con la extensión Thunder Client~\cite{thunder} para enviar las peticiones HTTP y revisar las respuestas. El procedimiento fue directo. Primero se instalaron las dependencias con \texttt{npm install} y se definió la contraseña de MySQL en la variable de entorno \texttt{DB\_PASSWORD} de la terminal, de modo que nunca queda guardada en el repositorio. Luego \texttt{npm start} inició el servidor, que imprime \texttt{Server running in http://localhost:5000} (Fig.~\ref{fig:servidor}). Desde Thunder Client se creó una petición \texttt{GET} por \emph{endpoint}, con sus parámetros, y en cada una se revisaron el estado, el tamaño, el tiempo y el cuerpo JSON de la respuesta.
-La Fig.~\ref{fig:entorno} muestra el entorno: a la izquierda, el explorador con la arquitectura por capas del proyecto (\texttt{constants}, \texttt{controllers}, \texttt{dao}, \texttt{env}, \texttt{middlewares}, \texttt{routes}, \texttt{services}, \texttt{utils} y \texttt{server.js}) y, al centro, Thunder Client con una petición \texttt{GET} a \texttt{/streamer-types/distribution} que responde \texttt{200 OK} en 5~ms.
-
-\begin{figure*}[!t]
-\centering
-\includegraphics[width=\textwidth]{figures/thunder/thunder_01_entorno.png}
-\caption{Entorno de pruebas: Visual Studio Code con el proyecto \texttt{streamers-api} y Thunder Client enviando una petición \texttt{GET} a \texttt{/streamer-types/distribution}.}
-\label{fig:entorno}
-\end{figure*}
+El proyecto sigue la arquitectura por capas descrita en la sección~V-A: su carpeta contiene \texttt{constants}, \texttt{controllers}, \texttt{dao}, \texttt{env}, \texttt{middlewares}, \texttt{routes}, \texttt{services}, \texttt{utils} y \texttt{server.js}. La Fig.~\ref{fig:entorno} muestra la primera prueba desde Thunder Client: una petición \texttt{GET} a \texttt{/streamer-types/distribution} que responde \texttt{200 OK} en 5~ms con la cantidad de canales de cada tipo.
 
 \begin{figure}[!t]
 \centering
-\includegraphics[width=0.85\columnwidth]{figures/thunder/thunder_02_servidor.png}
+\begin{tabular}[t]{@{}c@{}}
+  \includegraphics[width=\columnwidth,trim=228bp 625bp 705bp 82bp,clip]{figures/thunder/thunder_01_entorno.png}\\[1.5pt]
+  \includegraphics[width=\dimexpr\columnwidth*368/684\relax,trim=922bp 388bp 327bp 84bp,clip]{figures/thunder/thunder_01_entorno.png}
+\end{tabular}
+\caption{Prueba de \texttt{GET /streamer-types/distribution}: cantidad de canales por tipo (\texttt{esports} y \texttt{personality}).}
+\label{fig:entorno}
+\end{figure}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=0.7\columnwidth,trim=0 0 370 5,clip]{figures/thunder/thunder_02_servidor.png}
 \caption{Servidor Express iniciado con \texttt{npm start} en la terminal de Visual Studio Code.}
 \label{fig:servidor}
 \end{figure}
@@ -618,54 +694,18 @@ La Tabla~\ref{tab:endpoints} lista los nueve \emph{endpoints} (todos \texttt{GET
 \end{table*}
 
 \subsection{Resultados y contraste con las consultas SQL}
-Cada petición de la Tabla~\ref{tab:endpoints} con captura respondió \texttt{200 OK} en menos de 10~ms. En los cinco \emph{endpoints} que tienen una consulta equivalente en las secciones~VI y~VII, las cifras devueltas por la API coinciden con las de esas consultas.
-El ranking de juegos (Fig.~\ref{fig:rankings}) reproduce la sección~VII-A: con \texttt{preferenceOrder=1} la API devuelve \emph{Just Chatting} (257), \emph{League of Legends} (84), \emph{Grand Theft Auto V} (74), \emph{VALORANT} (63) y \emph{Casino} (36), y con \texttt{preferenceOrder=2}, \emph{Just Chatting} (155), \emph{VALORANT} (51), \emph{Minecraft} (42), \emph{Grand Theft Auto V} (40) y \emph{Counter-Strike} (39). Que un mismo parámetro cambie el rol del juego sin tocar la consulta confirma que la tabla puente \texttt{streamer\_game} resuelve bien la preferencia. La comparación por rol (Fig.~\ref{fig:comparison}) coincide con la desagregación de la sección~VII-C: \emph{Just Chatting} aparece en 257 canales como principal y 155 como secundario, con 1\,271\,079 y 1\,130\,277 seguidores promedio, y \emph{League of Legends} en 84 y 36 canales, con 833\,169 y 1\,411\,014 seguidores. Esa inversión de signo entre ambos juegos es la misma que se interpretó en el análisis SQL.
+Cada petición de la Tabla~\ref{tab:endpoints} con captura respondió \texttt{200 OK} en menos de 10~ms. En los cinco \emph{endpoints} que tienen una consulta equivalente en las secciones~VI y~VII, las cifras devueltas por la API coinciden con las de esas consultas. Por eso las capturas de cuatro de ellos se presentaron junto a la consulta que reproducen: el ranking de juegos (Fig.~\ref{fig:rankings}, sección~VII-A), las estadísticas por idioma (Fig.~\ref{fig:languages}, sección~VII-B) y, en la sección~VII-C, la existencia de juegos compartidos (Fig.~\ref{fig:shared}) y la comparación por rol (Fig.~\ref{fig:comparison}). El quinto, la distribución por tipo, es el de la Fig.~\ref{fig:entorno}.
 
-Las estadísticas por idioma (Fig.~\ref{fig:languages}) repiten el Cuadro~V: el español encabeza con 106 canales y 1\,776\,154 seguidores promedio, y su canal mayor aporta solo el 8,7\,\% del idioma, mientras que el turco (7 canales, 1\,094\,714) concentra el 38,2\,\% en su canal mayor. La diferencia es que el \emph{endpoint} devuelve los seguidores del canal mayor y su porcentaje, pero no el promedio sin ese canal, que solo calcula la consulta SQL. Los dos últimos \emph{endpoints} con equivalente son numéricos: la respuesta \texttt{\{"streamersCount": 934\}} (Fig.~\ref{fig:shared}) es el mismo valor de la sección~VII-C (934 de 999 canales comparten su juego principal con la lista de secundarios de otro canal), y la distribución por tipo (Fig.~\ref{fig:entorno}) devuelve 57 canales \texttt{esports} y 942 \texttt{personality}, igual que la agregación de la sección~VI-D.
-Los otros dos \emph{endpoints} probados no tienen una consulta equivalente en el informe. \texttt{/streamers/main-games} (Fig.~\ref{fig:maingames}) lista el juego principal de cada canal en orden alfabético (por ejemplo, \texttt{2okos} con \emph{Just Chatting}, \texttt{39daph} con \emph{Art} y \texttt{4head} con \emph{Grand Theft Auto V}); es la consulta de cuatro entidades de la sección~VI-C sin el filtro de idioma. \texttt{/streamers/views-per-follower} (Fig.~\ref{fig:viewsper}) ordena los canales por vistas totales divididas entre seguidores: encabezan \texttt{nba2kleague} (810,1), \texttt{xop0} (538,7), \texttt{uzra} (437,5) y \texttt{att} (423,5), canales de entre 20\,400 y 240\,000 seguidores con muchas vistas acumuladas. En las capturas largas Thunder Client muestra solo los primeros registros de la respuesta.
+El contraste cifra por cifra es el siguiente. Con \texttt{preferenceOrder=1} y con \texttt{preferenceOrder=2}, la API devuelve las dos listas de la sección~VII-A, con \emph{Just Chatting} a la cabeza en ambas (257 y 155 canales). La comparación por rol reproduce la desagregación de la sección~VII-C para \emph{Just Chatting} y \emph{League of Legends}, y esa inversión de signo entre ambos juegos es la misma que se interpretó en el análisis SQL. Las estadísticas por idioma repiten el Cuadro~V: el español encabeza con 106 canales y 1\,776\,154 seguidores promedio, y su canal mayor aporta solo el 8,7\,\% del idioma, mientras que el turco (7 canales, 1\,094\,714) concentra el 38,2\,\% en su canal mayor. La diferencia es que el \emph{endpoint} devuelve los seguidores del canal mayor y su porcentaje, pero no el promedio sin ese canal, que solo calcula la consulta SQL. Los dos últimos \emph{endpoints} con equivalente son numéricos: la respuesta \texttt{\{"streamersCount": 934\}} es el mismo valor de la sección~VII-C (934 de 999 canales comparten su juego principal con la lista de secundarios de otro canal), y la distribución por tipo (Fig.~\ref{fig:entorno}) devuelve 57 canales \texttt{esports} y 942 \texttt{personality}, igual que la agregación de la sección~VI-D.
 
-\begin{figure*}[!t]
+Los otros dos \emph{endpoints} probados no tienen una consulta equivalente en el informe. \texttt{/streamers/main-games} (Fig.~\ref{fig:maingames}) es la consulta de cuatro entidades de la sección~VI-C sin el filtro de idioma, y se explicó allí. \texttt{/streamers/views-per-follower} (Fig.~\ref{fig:viewsper}) ordena los canales por vistas totales divididas entre seguidores: encabezan \texttt{nba2kleague} (810,1), \texttt{xop0} (538,7), \texttt{uzra} (437,5) y \texttt{att} (423,5), canales de entre 20\,400 y 240\,000 seguidores con muchas vistas acumuladas. En las capturas largas Thunder Client muestra solo los primeros registros de la respuesta.
+
+\begin{figure}[!t]
 \centering
-\includegraphics[width=0.72\textwidth]{figures/thunder/thunder_06_rankings_main.png}\\[4pt]
-\includegraphics[width=0.72\textwidth]{figures/thunder/thunder_07_rankings_second.png}
-\caption{Prueba de \texttt{GET /games/rankings}: arriba, con \texttt{preferenceOrder=1} (juego principal) y \texttt{limit=5}; abajo, con \texttt{preferenceOrder=2} (segundo juego) y el \texttt{limit} por defecto.}
-\label{fig:rankings}
-\end{figure*}
-
-\begin{figure*}[!t]
-\centering
-\includegraphics[width=0.72\textwidth]{figures/thunder/thunder_08_preference_comparison.png}
-\caption{Prueba de \texttt{GET /games/preference-comparison?limit=15}: cantidad de canales, seguidores promedio y vistas promedio de cada juego como principal y como secundario (primeros registros).}
-\label{fig:comparison}
-\end{figure*}
-
-\begin{figure*}[!t]
-\centering
-\includegraphics[width=0.72\textwidth]{figures/thunder/thunder_09_language_stats.png}
-\caption{Prueba de \texttt{GET /languages/follower-stats}: canales, seguidores promedio y porcentaje del canal mayor por idioma (español, inglés y turco).}
-\label{fig:languages}
-\end{figure*}
-
-\begin{figure*}[!t]
-\centering
-\includegraphics[width=0.72\textwidth]{figures/thunder/thunder_05_shared_secondary.png}
-\caption{Prueba de \texttt{GET /streamers/main-game-shared-as-secondary}: 934 canales tienen como principal un juego que es secundario de otro canal.}
-\label{fig:shared}
-\end{figure*}
-
-\begin{figure*}[!t]
-\centering
-\includegraphics[width=0.72\textwidth]{figures/thunder/thunder_03_main_games.png}
-\caption{Prueba de \texttt{GET /streamers/main-games?limit=20}: juego principal de cada canal en orden alfabético (primeros registros).}
-\label{fig:maingames}
-\end{figure*}
-
-\begin{figure*}[!t]
-\centering
-\includegraphics[width=0.72\textwidth]{figures/thunder/thunder_04_views_per_follower.png}
+\thunderclip{figures/thunder/thunder_04_views_per_follower.png}{445}{\columnwidth}
 \caption{Prueba de \texttt{GET /streamers/views-per-follower?limit=10}: vistas totales por seguidor, de mayor a menor (primeros registros).}
 \label{fig:viewsper}
-\end{figure*}
+\end{figure}
 
 \section{Conclusiones}
 La decisión que organizó todo el trabajo fue conservar solo lo que el sistema necesita. De ella se derivó la selección de nueve columnas, la identificación del grupo repetitivo de juegos como el único problema real de normalización y su resolución con una tabla puente, y la extracción de catálogos que evitó contar como distintos juegos escritos de dos maneras. También quedó claro que la tercera forma normal, estrictamente, no obligaba a cambios en este dataset, y que los catálogos responden a una necesidad de integridad y no de la teoría de dependencias.
